@@ -35,6 +35,21 @@ const STORAGE_KEYS = {
     DAY_STATS: 'taskPlanner_dayStats'
 };
 
+// ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ДАТАМИ ==========
+
+// Функция для получения строки даты в формате YYYY-MM-DD с учетом локального времени
+function getDateString(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Функция для получения локальной даты без временной зоны
+function getLocalDate(year, month, day) {
+    return new Date(year, month, day);
+}
+
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 document.addEventListener('DOMContentLoaded', function() {
     loadFromStorage();
@@ -282,12 +297,12 @@ function renderCalendar() {
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
     const today = new Date();
-    const todayFormatted = today.toISOString().split('T')[0];
+    const todayFormatted = getDateString(today);
     
     // Первый день месяца
-    const firstDay = new Date(year, month, 1);
+    const firstDay = getLocalDate(year, month, 1);
     // Последний день месяца
-    const lastDay = new Date(year, month + 1, 0);
+    const lastDay = getLocalDate(year, month + 1, 0);
     
     // Получаем день недели (0 - воскресенье, 1 - понедельник, и т.д.)
     let firstDayWeekday = firstDay.getDay();
@@ -331,7 +346,7 @@ function renderCalendar() {
         const currentDate = new Date(calendarFirstDay);
         currentDate.setDate(calendarFirstDay.getDate() + i);
         
-        const dayFormatted = currentDate.toISOString().split('T')[0];
+        const dayFormatted = getDateString(currentDate);
         const dayNumber = currentDate.getDate();
         const isCurrentMonth = currentDate.getMonth() === month;
         const isToday = dayFormatted === todayFormatted;
@@ -434,37 +449,11 @@ function attachCalendarEvents() {
     });
 }
 
-// ========== ФУНКЦИЯ ДЛЯ ОТМЕТКИ ТЕКУЩЕГО ДНЯ ==========
-
-function markTodayInCalendar() {
-    const today = new Date();
-    const todayFormatted = today.toISOString().split('T')[0];
-    
-    // Находим элемент текущего дня в календаре
-    const todayElement = document.querySelector(`.calendar-day[data-date="${todayFormatted}"]`);
-    
-    if (todayElement) {
-        // Добавляем класс для сегодняшнего дня
-        todayElement.classList.add('today');
-        
-        // Получаем статистику для сегодняшнего дня
-        const todayStats = getDayStats(todayFormatted);
-        
-        // Обновляем цвет в зависимости от выполнения
-        todayElement.classList.remove('completed-100', 'completed-partial');
-        
-        if (todayStats.hasTasks) {
-            if (todayStats.completionRate === 100) {
-                todayElement.classList.add('completed-100');
-            } else if (todayStats.completionRate > 0) {
-                todayElement.classList.add('completed-partial');
-            }
-        }
-    }
-}
-
 function showDayTasks(dateString) {
-    const date = new Date(dateString);
+    // Парсим дату из строки YYYY-MM-DD
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = getLocalDate(year, month - 1, day);
+    
     const options = { day: 'numeric', month: 'long', year: 'numeric' };
     const formattedDate = date.toLocaleDateString('ru-RU', options);
     
@@ -527,7 +516,7 @@ function renderTemplates() {
 }
 
 function renderTaskList() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDateString();
     const todayTasks = tasks.filter(task => task.date === today);
 
     if (todayTasks.length === 0) {
@@ -727,7 +716,7 @@ function addTaskFromTemplate(e) {
             text: template.text,
             emoji: template.emoji,
             completed: false,
-            date: new Date().toISOString().split('T')[0],
+            date: getDateString(),
             fromTemplate: templateId
         };
         
@@ -770,7 +759,7 @@ function saveNewTask() {
             id: Date.now(),
             text: text,
             completed: false,
-            date: new Date().toISOString().split('T')[0]
+            date: getDateString()
         };
         
         tasks.push(newTask);
@@ -792,7 +781,7 @@ function showAddTaskPopup() {
 // ========== СТАТИСТИКА ==========
 
 function getTodayStats() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDateString();
     const todayTasks = tasks.filter(task => task.date === today);
     const total = todayTasks.length;
     const completed = todayTasks.filter(task => task.completed).length;
@@ -805,16 +794,16 @@ function getMonthlyStats() {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const firstDay = getLocalDate(currentYear, currentMonth, 1);
+    const lastDay = getLocalDate(currentYear, currentMonth + 1, 0);
     const totalDaysInMonth = lastDay.getDate();
     
     let daysWithTasks = 0;
     let totalCompletion = 0;
     
     for (let day = 1; day <= totalDaysInMonth; day++) {
-        const date = new Date(currentYear, currentMonth, day);
-        const dateString = date.toISOString().split('T')[0];
+        const date = getLocalDate(currentYear, currentMonth, day);
+        const dateString = getDateString(date);
         const dayStats = getDayStats(dateString);
         
         if (dayStats.hasTasks) {
@@ -853,7 +842,11 @@ function calculateStats() {
     
     // Последние задачи
     const recentTasks = [...tasks]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateB - dateA;
+        })
         .slice(0, 5);
     
     return {
@@ -866,12 +859,18 @@ function calculateStats() {
 }
 
 function formatDate(dateString) {
-    const date = new Date(dateString);
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = getLocalDate(year, month - 1, day);
+    const today = new Date();
+    const todayFormatted = getDateString(today);
     
-    if (dateString === today) return 'Сегодня';
-    if (dateString === yesterday) return 'Вчера';
+    if (dateString === todayFormatted) return 'Сегодня';
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayFormatted = getDateString(yesterday);
+    
+    if (dateString === yesterdayFormatted) return 'Вчера';
     
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
@@ -938,8 +937,3 @@ function deleteTemplate(e) {
         renderTab('home');
     }
 }
-
-// ========== АВТОМАТИЧЕСКАЯ ОТМЕТКА ТЕКУЩЕГО ДНЯ ==========
-
-// Вызываем функцию после рендеринга календаря
-setTimeout(markTodayInCalendar, 100);
