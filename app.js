@@ -5,6 +5,8 @@ let dailyTemplates = [];
 let swipeStartX = 0;
 let currentSwipeTaskId = null;
 let swipeThreshold = 60;
+let currentCalendarDate = new Date(); // Текущая дата для календаря
+let dayStatistics = {}; // Статистика по дням
 
 // Элементы DOM
 const mainContentEl = document.getElementById('main-content');
@@ -12,6 +14,10 @@ const currentDateEl = document.getElementById('current-date');
 const bottomNavButtons = document.querySelectorAll('.nav-btn');
 const popupOverlay = document.getElementById('popup-overlay');
 const templatesPopupOverlay = document.getElementById('templates-popup-overlay');
+const dayPopupOverlay = document.getElementById('day-popup-overlay');
+const dayPopupTitle = document.getElementById('day-popup-title');
+const dayTasksList = document.getElementById('day-tasks-list');
+const closeDayBtn = document.getElementById('close-day-btn');
 const newTaskInput = document.getElementById('new-task-input');
 const saveTaskBtn = document.getElementById('save-task-btn');
 const cancelBtn = document.getElementById('cancel-btn');
@@ -25,7 +31,8 @@ const addTaskBtn = document.createElement('button');
 // Ключи для localStorage
 const STORAGE_KEYS = {
     TASKS: 'taskPlanner_tasks',
-    TEMPLATES: 'taskPlanner_templates'
+    TEMPLATES: 'taskPlanner_templates',
+    DAY_STATS: 'taskPlanner_dayStats'
 };
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -39,11 +46,13 @@ function initApp() {
     renderTab('home');
     setupEventListeners();
     createFloatingAddButton();
+    updateDayStatistics(); // Обновляем статистику при запуске
 }
 
 // ========== РАБОТА С LOCALSTORAGE ==========
 
 function loadFromStorage() {
+    // Загружаем задачи
     const savedTasks = localStorage.getItem(STORAGE_KEYS.TASKS);
     if (savedTasks) {
         try {
@@ -53,6 +62,7 @@ function loadFromStorage() {
         }
     }
 
+    // Загружаем шаблоны
     const savedTemplates = localStorage.getItem(STORAGE_KEYS.TEMPLATES);
     if (savedTemplates) {
         try {
@@ -63,6 +73,16 @@ function loadFromStorage() {
     } else {
         dailyTemplates = getDefaultTemplates();
         saveTemplates();
+    }
+
+    // Загружаем статистику дней
+    const savedDayStats = localStorage.getItem(STORAGE_KEYS.DAY_STATS);
+    if (savedDayStats) {
+        try {
+            dayStatistics = JSON.parse(savedDayStats);
+        } catch (e) {
+            dayStatistics = {};
+        }
     }
 }
 
@@ -79,10 +99,55 @@ function getDefaultTemplates() {
 
 function saveTasks() {
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+    updateDayStatistics(); // Обновляем статистику при сохранении задач
 }
 
 function saveTemplates() {
     localStorage.setItem(STORAGE_KEYS.TEMPLATES, JSON.stringify(dailyTemplates));
+}
+
+function saveDayStatistics() {
+    localStorage.setItem(STORAGE_KEYS.DAY_STATS, JSON.stringify(dayStatistics));
+}
+
+// ========== СТАТИСТИКА ДНЕЙ ==========
+
+function updateDayStatistics() {
+    // Группируем задачи по дням
+    const tasksByDay = {};
+    
+    tasks.forEach(task => {
+        if (!tasksByDay[task.date]) {
+            tasksByDay[task.date] = [];
+        }
+        tasksByDay[task.date].push(task);
+    });
+    
+    // Обновляем статистику для каждого дня
+    Object.keys(tasksByDay).forEach(date => {
+        const dayTasks = tasksByDay[date];
+        const totalTasks = dayTasks.length;
+        const completedTasks = dayTasks.filter(task => task.completed).length;
+        const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        dayStatistics[date] = {
+            total: totalTasks,
+            completed: completedTasks,
+            completionRate: completionRate,
+            hasTasks: totalTasks > 0
+        };
+    });
+    
+    saveDayStatistics();
+}
+
+function getDayStats(dateString) {
+    return dayStatistics[dateString] || {
+        total: 0,
+        completed: 0,
+        completionRate: 0,
+        hasTasks: false
+    };
 }
 
 // ========== ОСНОВНЫЕ ФУНКЦИИ ==========
@@ -151,28 +216,43 @@ function renderTab(tabName) {
         html = `
             <div class="tab-content active" id="calendar-tab">
                 <h2>Календарь</h2>
-                <p class="placeholder-text">Здесь скоро появится календарь 📅</p>
-                <p class="placeholder-text">(В разработке)</p>
+                <div class="calendar-container">
+                    ${renderCalendar()}
+                </div>
             </div>
         `;
         addTaskBtn.style.display = 'none';
     } else if (tabName === 'stats') {
         const stats = calculateStats();
+        const monthlyStats = getMonthlyStats();
         html = `
             <div class="tab-content active" id="stats-tab">
                 <h2>Статистика</h2>
                 <div class="stats-container">
                     <div class="stat-card">
-                        <div class="stat-number">${stats.total}</div>
-                        <div class="stat-label">Всего задач</div>
+                        <div class="stat-number">${stats.totalDays}</div>
+                        <div class="stat-label">Активных дней</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number">${stats.completed}</div>
-                        <div class="stat-label">Выполнено</div>
+                        <div class="stat-number">${stats.completedTasks}</div>
+                        <div class="stat-label">Выполнено задач</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number">${stats.completionRate}%</div>
-                        <div class="stat-label">Прогресс</div>
+                        <div class="stat-number">${stats.averageCompletion}%</div>
+                        <div class="stat-label">Средний прогресс</div>
+                    </div>
+                </div>
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <div class="progress-title">Текущий месяц</div>
+                        <div class="progress-percent">${monthlyStats.completionRate}%</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${monthlyStats.completionRate}%"></div>
+                    </div>
+                    <div class="progress-numbers">
+                        <span>Дней с задачами: ${monthlyStats.daysWithTasks}</span>
+                        <span>Всего дней: ${monthlyStats.totalDaysInMonth}</span>
                     </div>
                 </div>
                 <div class="recent-tasks">
@@ -191,8 +271,211 @@ function renderTab(tabName) {
         attachTemplateEvents();
         attachSwipeEvents();
         document.getElementById('manage-templates-btn').addEventListener('click', showTemplatesPopup);
+    } else if (tabName === 'calendar') {
+        attachCalendarEvents();
     }
 }
+
+// ========== КАЛЕНДАРЬ ==========
+
+function renderCalendar() {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const today = new Date();
+    const todayFormatted = today.toISOString().split('T')[0];
+    
+    // Первый день месяца
+    const firstDay = new Date(year, month, 1);
+    // Последний день месяца
+    const lastDay = new Date(year, month + 1, 0);
+    // Первый день календаря (может быть предыдущий месяц)
+    const calendarFirstDay = new Date(firstDay);
+    calendarFirstDay.setDate(1 - firstDay.getDay());
+    
+    const monthNames = [
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    
+    const weekdayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    
+    let calendarHTML = `
+        <div class="calendar-header">
+            <div class="calendar-title">${monthNames[month]} ${year}</div>
+            <div class="calendar-nav">
+                <button class="calendar-nav-btn" id="prev-month-btn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="calendar-nav-btn" id="next-month-btn">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="calendar-weekdays">
+            ${weekdayNames.map(day => `<div class="weekday">${day}</div>`).join('')}
+        </div>
+        
+        <div class="calendar-days">
+    `;
+    
+    // Генерируем 42 дня (6 недель)
+    for (let i = 0; i < 42; i++) {
+        const currentDate = new Date(calendarFirstDay);
+        currentDate.setDate(calendarFirstDay.getDate() + i);
+        
+        const dayFormatted = currentDate.toISOString().split('T')[0];
+        const dayNumber = currentDate.getDate();
+        const isCurrentMonth = currentDate.getMonth() === month;
+        const isToday = dayFormatted === todayFormatted;
+        
+        const dayStats = getDayStats(dayFormatted);
+        
+        let dayClasses = ['calendar-day'];
+        
+        if (!isCurrentMonth) {
+            dayClasses.push('other-month');
+        } else {
+            dayClasses.push('current-month');
+        }
+        
+        if (isToday) {
+            dayClasses.push('today');
+        }
+        
+        if (dayStats.hasTasks) {
+            dayClasses.push('has-tasks');
+            
+            if (dayStats.completionRate === 100) {
+                dayClasses.push('completed-100');
+            } else if (dayStats.completionRate > 0) {
+                dayClasses.push('completed-partial');
+            }
+        }
+        
+        if (isCurrentMonth) {
+            calendarHTML += `
+                <div class="${dayClasses.join(' ')}" data-date="${dayFormatted}">
+                    ${dayNumber}
+                </div>
+            `;
+        } else {
+            calendarHTML += `
+                <div class="${dayClasses.join(' ')}">
+                    ${dayNumber}
+                </div>
+            `;
+        }
+    }
+    
+    calendarHTML += `
+        </div>
+        
+        <div class="calendar-stats">
+            <h4>Легенда календаря</h4>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-indicator completed-100"></div>
+                    <div class="stat-label">100% выполнено</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-indicator completed-partial"></div>
+                    <div class="stat-label">Частично выполнено</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-indicator no-tasks"></div>
+                    <div class="stat-label">Задач нет</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-indicator" style="border-color: #6a11cb; background-color: rgba(106, 17, 203, 0.1);"></div>
+                    <div class="stat-label">Сегодня</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-indicator has-tasks" style="position: relative; border: 2px solid #f0f0f0;">
+                        <div style="position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background-color: #6a11cb; border-radius: 50%;"></div>
+                    </div>
+                    <div class="stat-label">Есть задачи</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-indicator" style="border-color: #999; background-color: #f5f5f5;"></div>
+                    <div class="stat-label">Другой месяц</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return calendarHTML;
+}
+
+function attachCalendarEvents() {
+    document.getElementById('prev-month-btn').addEventListener('click', () => {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        renderTab('calendar');
+    });
+    
+    document.getElementById('next-month-btn').addEventListener('click', () => {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        renderTab('calendar');
+    });
+    
+    // Клик по дням календаря
+    document.querySelectorAll('.calendar-day[data-date]').forEach(dayEl => {
+        dayEl.addEventListener('click', () => {
+            const date = dayEl.dataset.date;
+            showDayTasks(date);
+        });
+    });
+}
+
+function showDayTasks(dateString) {
+    const date = new Date(dateString);
+    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const formattedDate = date.toLocaleDateString('ru-RU', options);
+    
+    const dayTasks = tasks.filter(task => task.date === dateString);
+    const dayStats = getDayStats(dateString);
+    
+    dayPopupTitle.textContent = `Задачи на ${formattedDate}`;
+    
+    if (dayTasks.length === 0) {
+        dayTasksList.innerHTML = '<p class="placeholder-text">Задач на этот день нет</p>';
+    } else {
+        dayTasksList.innerHTML = dayTasks.map(task => `
+            <div class="day-task-item">
+                <span class="day-task-emoji">${task.emoji || '📝'}</span>
+                <span class="day-task-text ${task.completed ? 'completed' : ''}">
+                    ${task.text}
+                </span>
+                <span class="day-task-status ${task.completed ? 'completed' : 'not-completed'}">
+                    ${task.completed ? '✓' : '✗'}
+                </span>
+            </div>
+        `).join('');
+    }
+    
+    // Добавляем статистику дня
+    const statsHTML = `
+        <div class="progress-section" style="margin-top: 15px;">
+            <div class="progress-header">
+                <div class="progress-title">Статистика дня</div>
+                <div class="progress-percent">${dayStats.completionRate}%</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${dayStats.completionRate}%"></div>
+            </div>
+            <div class="progress-numbers">
+                <span>Выполнено: ${dayStats.completed}</span>
+                <span>Всего: ${dayStats.total}</span>
+            </div>
+        </div>
+    `;
+    
+    dayTasksList.insertAdjacentHTML('beforeend', statsHTML);
+    
+    dayPopupOverlay.style.display = 'flex';
+}
+
+// ========== ШАБЛОНЫ И ЗАДАЧИ ==========
 
 function renderTemplates() {
     if (dailyTemplates.length === 0) {
@@ -275,30 +558,20 @@ function setupEventListeners() {
     });
     addTemplateBtn.addEventListener('click', addNewTemplate);
 
+    closeDayBtn.addEventListener('click', () => dayPopupOverlay.style.display = 'none');
+    dayPopupOverlay.addEventListener('click', function(e) {
+        if (e.target === dayPopupOverlay) dayPopupOverlay.style.display = 'none';
+    });
+
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             popupOverlay.style.display = 'none';
             templatesPopupOverlay.style.display = 'none';
+            dayPopupOverlay.style.display = 'none';
         }
         if (e.key === 'Enter' && popupOverlay.style.display === 'flex') {
             saveNewTask();
         }
-    });
-}
-
-function attachTaskEvents() {
-    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('click', toggleTaskStatus);
-    });
-    
-    document.querySelectorAll('.delete-action').forEach(btn => {
-        btn.addEventListener('click', deleteTask);
-    });
-}
-
-function attachTemplateEvents() {
-    document.querySelectorAll('.template-btn').forEach(btn => {
-        btn.addEventListener('click', addTaskFromTemplate);
     });
 }
 
@@ -392,6 +665,22 @@ function attachSwipeEvents() {
 
 // ========== ОПЕРАЦИИ С ЗАДАЧАМИ ==========
 
+function attachTaskEvents() {
+    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('click', toggleTaskStatus);
+    });
+    
+    document.querySelectorAll('.delete-action').forEach(btn => {
+        btn.addEventListener('click', deleteTask);
+    });
+}
+
+function attachTemplateEvents() {
+    document.querySelectorAll('.template-btn').forEach(btn => {
+        btn.addEventListener('click', addTaskFromTemplate);
+    });
+}
+
 function addTaskFromTemplate(e) {
     const templateId = parseInt(e.currentTarget.dataset.templateId);
     const template = dailyTemplates.find(t => t.id === templateId);
@@ -464,7 +753,7 @@ function showAddTaskPopup() {
     newTaskInput.focus();
 }
 
-// ========== СТАТИСТИКА И ПРОГРЕСС ==========
+// ========== СТАТИСТИКА ==========
 
 function getTodayStats() {
     const today = new Date().toISOString().split('T')[0];
@@ -476,18 +765,67 @@ function getTodayStats() {
     return { total, completed, completionRate };
 }
 
-function calculateStats() {
-    const todayStats = getTodayStats();
+function getMonthlyStats() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const totalDaysInMonth = lastDay.getDate();
     
+    let daysWithTasks = 0;
+    let totalCompletion = 0;
+    
+    for (let day = 1; day <= totalDaysInMonth; day++) {
+        const date = new Date(currentYear, currentMonth, day);
+        const dateString = date.toISOString().split('T')[0];
+        const dayStats = getDayStats(dateString);
+        
+        if (dayStats.hasTasks) {
+            daysWithTasks++;
+            totalCompletion += dayStats.completionRate;
+        }
+    }
+    
+    const averageCompletion = daysWithTasks > 0 ? Math.round(totalCompletion / daysWithTasks) : 0;
+    
+    return {
+        daysWithTasks,
+        totalDaysInMonth,
+        averageCompletion,
+        completionRate: averageCompletion
+    };
+}
+
+function calculateStats() {
+    // Общая статистика по всем дням
+    const daysWithStats = Object.keys(dayStatistics);
+    const totalDays = daysWithStats.length;
+    
+    let totalTasks = 0;
+    let completedTasks = 0;
+    let totalCompletion = 0;
+    
+    daysWithStats.forEach(date => {
+        const stats = dayStatistics[date];
+        totalTasks += stats.total;
+        completedTasks += stats.completed;
+        totalCompletion += stats.completionRate;
+    });
+    
+    const averageCompletion = totalDays > 0 ? Math.round(totalCompletion / totalDays) : 0;
+    
+    // Последние задачи
     const recentTasks = [...tasks]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 5);
     
-    return { 
-        total: todayStats.total, 
-        completed: todayStats.completed, 
-        completionRate: todayStats.completionRate, 
-        recentTasks 
+    return {
+        totalDays,
+        totalTasks,
+        completedTasks,
+        averageCompletion,
+        recentTasks
     };
 }
 

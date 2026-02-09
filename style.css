@@ -65,6 +65,215 @@ body {
     to { opacity: 1; }
 }
 
+/* ========== КАЛЕНДАРЬ ========== */
+
+.calendar-container {
+    background-color: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    border: 2px solid #f0f0f0;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 0 10px;
+}
+
+.calendar-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #333;
+    text-transform: capitalize;
+}
+
+.calendar-nav {
+    display: flex;
+    gap: 10px;
+}
+
+.calendar-nav-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #6a11cb;
+    background-color: white;
+    color: #6a11cb;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.3s;
+}
+
+.calendar-nav-btn:hover {
+    background-color: #6a11cb;
+    color: white;
+}
+
+.calendar-nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #ccc;
+    color: #ccc;
+}
+
+.calendar-nav-btn:disabled:hover {
+    background-color: white;
+    color: #ccc;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.weekday {
+    font-size: 0.85rem;
+    color: #666;
+    font-weight: 600;
+    padding: 8px 0;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    font-weight: 500;
+}
+
+.calendar-day.empty {
+    background-color: transparent;
+    cursor: default;
+}
+
+.calendar-day.current-month {
+    background-color: #f9f9f9;
+    border: 2px solid #f0f0f0;
+    color: #333;
+}
+
+.calendar-day.other-month {
+    background-color: #f5f5f5;
+    border: 2px solid #eee;
+    color: #999;
+    opacity: 0.7;
+}
+
+.calendar-day.today {
+    border-color: #6a11cb;
+    background-color: rgba(106, 17, 203, 0.1);
+    font-weight: 600;
+}
+
+.calendar-day.completed-100 {
+    background-color: #4CAF50;
+    border-color: #4CAF50;
+    color: white;
+    font-weight: 600;
+}
+
+.calendar-day.completed-partial {
+    background-color: #FFC107;
+    border-color: #FFC107;
+    color: white;
+    font-weight: 600;
+}
+
+.calendar-day.has-tasks::after {
+    content: '';
+    position: absolute;
+    bottom: 5px;
+    width: 4px;
+    height: 4px;
+    background-color: #6a11cb;
+    border-radius: 50%;
+}
+
+.calendar-day.completed-100.has-tasks::after,
+.calendar-day.completed-partial.has-tasks::after {
+    background-color: white;
+}
+
+.calendar-day:hover:not(.empty) {
+    transform: scale(1.1);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.calendar-stats {
+    margin-top: 25px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 15px;
+    border: 2px solid #eee;
+}
+
+.calendar-stats h4 {
+    color: #444;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.stat-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-indicator.completed-100 {
+    background-color: #4CAF50;
+}
+
+.stat-indicator.completed-partial {
+    background-color: #FFC107;
+}
+
+.stat-indicator.no-tasks {
+    background-color: #f9f9f9;
+    border-color: #ddd;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+}
+
 /* ========== ПРОГРЕСС БАР (ПЕРВЫЙ) ========== */
 
 .progress-section {
@@ -417,6 +626,8 @@ body {
     width: 90%;
     max-width: 400px;
     box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    max-height: 80vh;
+    overflow-y: auto;
 }
 
 .popup h3 {
@@ -468,7 +679,7 @@ body {
 
 /* Список шаблонов в попапе */
 .templates-list {
-    max-height: 300px;
+    max-height: 200px;
     overflow-y: auto;
     margin-bottom: 20px;
 }
@@ -537,6 +748,50 @@ body {
 .template-emoji-input {
     text-align: center;
     font-size: 1.2rem;
+}
+
+/* Задачи дня в попапе */
+.day-tasks-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.day-task-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background-color: #f9f9f9;
+    border-radius: 15px;
+    margin-bottom: 10px;
+}
+
+.day-task-emoji {
+    font-size: 1.2rem;
+    margin-right: 15px;
+    width: 30px;
+}
+
+.day-task-text {
+    flex: 1;
+    font-size: 0.95rem;
+}
+
+.day-task-status {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.day-task-status.completed {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.day-task-status.not-completed {
+    background-color: #ff6b6b;
+    color: white;
 }
 
 /* ========== СТАТИСТИКА ========== */
@@ -636,12 +891,4 @@ body {
     text-align: center;
     font-size: 1.3rem;
     font-weight: 600;
-}
-
-/* Стили для календаря */
-.calendar-placeholder {
-    text-align: center;
-    color: #aaa;
-    margin-top: 40px;
-    font-size: 1.1rem;
 }
