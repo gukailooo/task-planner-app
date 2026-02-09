@@ -276,7 +276,7 @@ function renderTab(tabName) {
     }
 }
 
-// ========== КАЛЕНДАРЬ ==========
+// ========== КАЛЕНДАРЬ (ИСПРАВЛЕННЫЙ) ==========
 
 function renderCalendar() {
     const year = currentCalendarDate.getFullYear();
@@ -288,16 +288,23 @@ function renderCalendar() {
     const firstDay = new Date(year, month, 1);
     // Последний день месяца
     const lastDay = new Date(year, month + 1, 0);
-    // Первый день календаря (может быть предыдущий месяц)
+    
+    // Получаем день недели (0 - воскресенье, 1 - понедельник, и т.д.)
+    let firstDayWeekday = firstDay.getDay();
+    // Преобразуем: если воскресенье (0), делаем его 7, чтобы неделя начиналась с понедельника (1)
+    if (firstDayWeekday === 0) firstDayWeekday = 7;
+    
+    // Первый день календаря (отсчитываем назад до понедельника)
     const calendarFirstDay = new Date(firstDay);
-    calendarFirstDay.setDate(1 - firstDay.getDay());
+    calendarFirstDay.setDate(firstDay.getDate() - (firstDayWeekday - 1));
     
     const monthNames = [
         'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
         'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
     ];
     
-    const weekdayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    // Неделя начинается с понедельника
+    const weekdayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     
     let calendarHTML = `
         <div class="calendar-header">
@@ -319,7 +326,7 @@ function renderCalendar() {
         <div class="calendar-days">
     `;
     
-    // Генерируем 42 дня (6 недель)
+    // Генерируем 42 дня (6 недель), начиная с понедельника
     for (let i = 0; i < 42; i++) {
         const currentDate = new Date(calendarFirstDay);
         currentDate.setDate(calendarFirstDay.getDate() + i);
@@ -425,6 +432,35 @@ function attachCalendarEvents() {
             showDayTasks(date);
         });
     });
+}
+
+// ========== ФУНКЦИЯ ДЛЯ ОТМЕТКИ ТЕКУЩЕГО ДНЯ ==========
+
+function markTodayInCalendar() {
+    const today = new Date();
+    const todayFormatted = today.toISOString().split('T')[0];
+    
+    // Находим элемент текущего дня в календаре
+    const todayElement = document.querySelector(`.calendar-day[data-date="${todayFormatted}"]`);
+    
+    if (todayElement) {
+        // Добавляем класс для сегодняшнего дня
+        todayElement.classList.add('today');
+        
+        // Получаем статистику для сегодняшнего дня
+        const todayStats = getDayStats(todayFormatted);
+        
+        // Обновляем цвет в зависимости от выполнения
+        todayElement.classList.remove('completed-100', 'completed-partial');
+        
+        if (todayStats.hasTasks) {
+            if (todayStats.completionRate === 100) {
+                todayElement.classList.add('completed-100');
+            } else if (todayStats.completionRate > 0) {
+                todayElement.classList.add('completed-partial');
+            }
+        }
+    }
 }
 
 function showDayTasks(dateString) {
@@ -902,3 +938,8 @@ function deleteTemplate(e) {
         renderTab('home');
     }
 }
+
+// ========== АВТОМАТИЧЕСКАЯ ОТМЕТКА ТЕКУЩЕГО ДНЯ ==========
+
+// Вызываем функцию после рендеринга календаря
+setTimeout(markTodayInCalendar, 100);
