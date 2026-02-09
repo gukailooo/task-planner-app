@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Planner</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Верхняя панель с датой -->
+        <header class="header">
+            <h1 id="current-date">Загрузка даты...</h1>
+        </header>
+
+        <!-- Основное содержание -->
+        <main class="main-content" id="main-content">
+            <!-- Контент будет подгружаться здесь -->
+        </main>
+
+        <!-- Нижняя панель навигации -->
+        <nav class="bottom-nav">
+            <button class="nav-btn" data-tab="calendar">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Календарь</span>
+            </button>
+            <button class="nav-btn active" data-tab="home">
+                <i class="fas fa-home"></i>
+                <span>Главная</span>
+            </button>
+            <button class="nav-btn" data-tab="stats">
+                <i class="fas fa-chart-bar"></i>
+                <span>Статистика</span>
+            </button>
+        </nav>
+
+        <!-- Попап для добавления новой задачи -->
+        <div class="popup-overlay" id="popup-overlay">
+            <div class="popup">
+                <h3>Добавить задачу</h3>
+                <input type="text" id="new-task-input" placeholder="Например: Зарядка 15 минут">
+                <div class="popup-buttons">
+                    <button class="btn btn-secondary" id="cancel-btn">Отмена</button>
+                    <button class="btn btn-primary" id="save-task-btn">Добавить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Попап управления шаблонами -->
+        <div class="popup-overlay" id="templates-popup-overlay">
+            <div class="popup">
+                <h3>Управление шаблонами</h3>
+                <div class="templates-list" id="templates-list">
+                    <!-- Список шаблонов будет здесь -->
+                </div>
+                <div class="add-template-form">
+                    <input type="text" id="new-template-text" placeholder="Текст задачи" class="template-input">
+                    <input type="text" id="new-template-emoji" placeholder="😊 (необязательно)" class="template-emoji-input">
+                    <button class="btn btn-primary" id="add-template-btn">Добавить шаблон</button>
+                </div>
+                <div class="popup-buttons">
+                    <button class="btn btn-secondary" id="close-templates-btn">Готово</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
