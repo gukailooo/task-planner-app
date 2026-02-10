@@ -5,9 +5,9 @@ let dailyTemplates = [];
 let swipeStartX = 0;
 let currentSwipeTaskId = null;
 let swipeThreshold = 60;
-let currentCalendarDate = new Date(); // Текущая дата для календаря
-let calendarViewDate = new Date(); // Дата для отображения в календаре (может отличаться от текущей)
-let dayStatistics = {}; // Статистика по дням
+let currentCalendarDate = new Date();
+let calendarViewDate = new Date();
+let dayStatistics = {};
 
 // Элементы DOM
 const mainContentEl = document.getElementById('main-content');
@@ -34,8 +34,37 @@ const STORAGE_KEYS = {
     TASKS: 'taskPlanner_tasks',
     TEMPLATES: 'taskPlanner_templates',
     DAY_STATS: 'taskPlanner_dayStats',
-    CALENDAR_VIEW: 'taskPlanner_calendarView' // Новый ключ для сохранения состояния календаря
+    CALENDAR_VIEW: 'taskPlanner_calendarView'
 };
+
+// ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ДАТАМИ ==========
+
+function getDateString(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getLocalDate(year, month, day) {
+    return new Date(year, month, day);
+}
+
+function getMonthName(monthIndex) {
+    const monthNames = [
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    return monthNames[monthIndex];
+}
+
+function getShortMonthName(monthIndex) {
+    const monthNames = [
+        'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+        'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'
+    ];
+    return monthNames[monthIndex];
+}
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 document.addEventListener('DOMContentLoaded', function() {
@@ -48,13 +77,12 @@ function initApp() {
     renderTab('home');
     setupEventListeners();
     createFloatingAddButton();
-    updateDayStatistics(); // Обновляем статистику при запуске
+    updateDayStatistics();
 }
 
 // ========== РАБОТА С LOCALSTORAGE ==========
 
 function loadFromStorage() {
-    // Загружаем задачи
     const savedTasks = localStorage.getItem(STORAGE_KEYS.TASKS);
     if (savedTasks) {
         try {
@@ -64,7 +92,6 @@ function loadFromStorage() {
         }
     }
 
-    // Загружаем шаблоны
     const savedTemplates = localStorage.getItem(STORAGE_KEYS.TEMPLATES);
     if (savedTemplates) {
         try {
@@ -77,7 +104,6 @@ function loadFromStorage() {
         saveTemplates();
     }
 
-    // Загружаем статистику дней
     const savedDayStats = localStorage.getItem(STORAGE_KEYS.DAY_STATS);
     if (savedDayStats) {
         try {
@@ -87,17 +113,16 @@ function loadFromStorage() {
         }
     }
 
-    // Загружаем состояние календаря
     const savedCalendarView = localStorage.getItem(STORAGE_KEYS.CALENDAR_VIEW);
     if (savedCalendarView) {
         try {
             const savedDate = JSON.parse(savedCalendarView);
             calendarViewDate = new Date(savedDate.year, savedDate.month, 1);
         } catch (e) {
-            calendarViewDate = new Date(); // По умолчанию текущий месяц
+            calendarViewDate = new Date();
         }
     } else {
-        calendarViewDate = new Date(); // По умолчанию текущий месяц
+        calendarViewDate = new Date();
     }
 }
 
@@ -114,7 +139,7 @@ function getDefaultTemplates() {
 
 function saveTasks() {
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
-    updateDayStatistics(); // Обновляем статистику при сохранении задач
+    updateDayStatistics();
 }
 
 function saveTemplates() {
@@ -136,7 +161,6 @@ function saveCalendarView() {
 // ========== СТАТИСТИКА ДНЕЙ ==========
 
 function updateDayStatistics() {
-    // Группируем задачи по дням
     const tasksByDay = {};
     
     tasks.forEach(task => {
@@ -146,7 +170,6 @@ function updateDayStatistics() {
         tasksByDay[task.date].push(task);
     });
     
-    // Обновляем статистику для каждого дня
     Object.keys(tasksByDay).forEach(date => {
         const dayTasks = tasksByDay[date];
         const totalTasks = dayTasks.length;
@@ -199,7 +222,6 @@ function renderTab(tabName) {
             <div class="tab-content active" id="home-tab">
                 <h2>Сегодня</h2>
                 
-                <!-- ПРОГРЕСС БАР (ПЕРВЫЙ) -->
                 <div class="progress-section">
                     <div class="progress-header">
                         <div class="progress-title">Прогресс выполнения</div>
@@ -214,7 +236,6 @@ function renderTab(tabName) {
                     </div>
                 </div>
                 
-                <!-- ЗАДАЧИ (ВТОРЫЕ) -->
                 <div class="task-section">
                     <h3>Мои задачи</h3>
                     <div class="tasks-container" id="tasks-container">
@@ -222,7 +243,6 @@ function renderTab(tabName) {
                     </div>
                 </div>
                 
-                <!-- ШАБЛОНЫ (ТРЕТЬИ) -->
                 <div class="quick-add-section">
                     <h3>Быстрое добавление</h3>
                     <div class="templates-container" id="templates-container">
@@ -248,9 +268,12 @@ function renderTab(tabName) {
     } else if (tabName === 'stats') {
         const stats = calculateStats();
         const monthlyStats = getMonthlyStats();
+        const yearComparison = getYearComparison();
+        
         html = `
             <div class="tab-content active" id="stats-tab">
                 <h2>Статистика</h2>
+                
                 <div class="stats-container">
                     <div class="stat-card">
                         <div class="stat-number">${stats.totalDays}</div>
@@ -265,6 +288,7 @@ function renderTab(tabName) {
                         <div class="stat-label">Средний прогресс</div>
                     </div>
                 </div>
+                
                 <div class="progress-section">
                     <div class="progress-header">
                         <div class="progress-title">Текущий месяц</div>
@@ -278,9 +302,19 @@ function renderTab(tabName) {
                         <span>Всего дней: ${monthlyStats.totalDaysInMonth}</span>
                     </div>
                 </div>
-                <div class="recent-tasks">
-                    <h3>Последние задачи</h3>
-                    ${renderRecentTasks(stats.recentTasks)}
+                
+                <div class="comparison-section">
+                    <h3>Сравнение продуктивности</h3>
+                    
+                    <div class="comparison-tabs">
+                        <button class="comparison-tab active" data-comparison="months">По месяцам</button>
+                        <button class="comparison-tab" data-comparison="years">По годам</button>
+                        <button class="comparison-tab" data-comparison="days">Дни месяца</button>
+                    </div>
+                    
+                    <div class="comparison-content">
+                        ${renderCompactMonthsComparison(yearComparison)}
+                    </div>
                 </div>
             </div>
         `;
@@ -296,10 +330,12 @@ function renderTab(tabName) {
         document.getElementById('manage-templates-btn').addEventListener('click', showTemplatesPopup);
     } else if (tabName === 'calendar') {
         attachCalendarEvents();
+    } else if (tabName === 'stats') {
+        attachComparisonEvents();
     }
 }
 
-// ========== КАЛЕНДАРЬ (ИСПРАВЛЕННЫЙ) ==========
+// ========== КАЛЕНДАРЬ ==========
 
 function renderCalendar() {
     const year = calendarViewDate.getFullYear();
@@ -307,17 +343,12 @@ function renderCalendar() {
     const today = new Date();
     const todayFormatted = getDateString(today);
     
-    // Первый день месяца
     const firstDay = getLocalDate(year, month, 1);
-    // Последний день месяца
     const lastDay = getLocalDate(year, month + 1, 0);
     
-    // Получаем день недели (0 - воскресенье, 1 - понедельник, и т.д.)
     let firstDayWeekday = firstDay.getDay();
-    // Преобразуем: если воскресенье (0), делаем его 7, чтобы неделя начиналась с понедельника (1)
     if (firstDayWeekday === 0) firstDayWeekday = 7;
     
-    // Первый день календаря (отсчитываем назад до понедельника)
     const calendarFirstDay = new Date(firstDay);
     calendarFirstDay.setDate(firstDay.getDate() - (firstDayWeekday - 1));
     
@@ -326,7 +357,6 @@ function renderCalendar() {
         'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
     ];
     
-    // Неделя начинается с понедельника
     const weekdayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     
     let calendarHTML = `
@@ -335,6 +365,9 @@ function renderCalendar() {
             <div class="calendar-nav">
                 <button class="calendar-nav-btn" id="prev-month-btn">
                     <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="calendar-nav-btn" id="current-month-btn">
+                    <i class="fas fa-calendar-day"></i>
                 </button>
                 <button class="calendar-nav-btn" id="next-month-btn">
                     <i class="fas fa-chevron-right"></i>
@@ -349,7 +382,6 @@ function renderCalendar() {
         <div class="calendar-days">
     `;
     
-    // Генерируем 42 дня (6 недель), начиная с понедельника
     for (let i = 0; i < 42; i++) {
         const currentDate = new Date(calendarFirstDay);
         currentDate.setDate(calendarFirstDay.getDate() + i);
@@ -440,104 +472,28 @@ function renderCalendar() {
 function attachCalendarEvents() {
     document.getElementById('prev-month-btn').addEventListener('click', () => {
         calendarViewDate.setMonth(calendarViewDate.getMonth() - 1);
-        saveCalendarView(); // Сохраняем состояние календаря
+        saveCalendarView();
         renderTab('calendar');
     });
     
     document.getElementById('next-month-btn').addEventListener('click', () => {
         calendarViewDate.setMonth(calendarViewDate.getMonth() + 1);
-        saveCalendarView(); // Сохраняем состояние календаря
+        saveCalendarView();
         renderTab('calendar');
     });
     
-    // Кнопка "Текущий месяц"
-    const currentMonthBtn = document.createElement('button');
-    currentMonthBtn.className = 'calendar-nav-btn';
-    currentMonthBtn.innerHTML = '<i class="fas fa-calendar-day"></i>';
-    currentMonthBtn.title = 'Текущий месяц';
-    currentMonthBtn.addEventListener('click', () => {
-        calendarViewDate = new Date(); // Сбрасываем на текущий месяц
-        saveCalendarView(); // Сохраняем состояние календаря
+    document.getElementById('current-month-btn').addEventListener('click', () => {
+        calendarViewDate = new Date();
+        saveCalendarView();
         renderTab('calendar');
     });
     
-    // Добавляем кнопку в заголовок календаря
-    const calendarNav = document.querySelector('.calendar-nav');
-    if (calendarNav) {
-        calendarNav.insertBefore(currentMonthBtn, document.getElementById('next-month-btn'));
-    }
-    
-    // Клик по дням календаря
     document.querySelectorAll('.calendar-day[data-date]').forEach(dayEl => {
         dayEl.addEventListener('click', () => {
             const date = dayEl.dataset.date;
             showDayTasks(date);
         });
     });
-}
-
-function showDayTasks(dateString) {
-    // Парсим дату из строки YYYY-MM-DD
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = getLocalDate(year, month - 1, day);
-    
-    const options = { day: 'numeric', month: 'long', year: 'numeric' };
-    const formattedDate = date.toLocaleDateString('ru-RU', options);
-    
-    const dayTasks = tasks.filter(task => task.date === dateString);
-    const dayStats = getDayStats(dateString);
-    
-    dayPopupTitle.textContent = `Задачи на ${formattedDate}`;
-    
-    if (dayTasks.length === 0) {
-        dayTasksList.innerHTML = '<p class="placeholder-text">Задач на этот день нет</p>';
-    } else {
-        dayTasksList.innerHTML = dayTasks.map(task => `
-            <div class="day-task-item">
-                <span class="day-task-emoji">${task.emoji || '📝'}</span>
-                <span class="day-task-text ${task.completed ? 'completed' : ''}">
-                    ${task.text}
-                </span>
-                <span class="day-task-status ${task.completed ? 'completed' : 'not-completed'}">
-                    ${task.completed ? '✓' : '✗'}
-                </span>
-            </div>
-        `).join('');
-    }
-    
-    // Добавляем статистику дня
-    const statsHTML = `
-        <div class="progress-section" style="margin-top: 15px;">
-            <div class="progress-header">
-                <div class="progress-title">Статистика дня</div>
-                <div class="progress-percent">${dayStats.completionRate}%</div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${dayStats.completionRate}%"></div>
-            </div>
-            <div class="progress-numbers">
-                <span>Выполнено: ${dayStats.completed}</span>
-                <span>Всего: ${dayStats.total}</span>
-            </div>
-        </div>
-    `;
-    
-    dayTasksList.insertAdjacentHTML('beforeend', statsHTML);
-    
-    dayPopupOverlay.style.display = 'flex';
-}
-
-// ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ДАТАМИ ==========
-
-function getDateString(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function getLocalDate(year, month, day) {
-    return new Date(year, month, day);
 }
 
 // ========== ШАБЛОНЫ И ЗАДАЧИ ==========
@@ -577,20 +533,6 @@ function renderTaskList() {
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
-        </div>
-    `).join('');
-}
-
-function renderRecentTasks(recentTasks) {
-    if (recentTasks.length === 0) {
-        return '<p class="placeholder-text">Задач пока нет</p>';
-    }
-
-    return recentTasks.map(task => `
-        <div class="recent-task-item">
-            <span class="recent-task-emoji">${task.emoji || '📝'}</span>
-            <span class="recent-task-text ${task.completed ? 'completed' : ''}">${task.text}</span>
-            <span class="recent-task-date">${formatDate(task.date)}</span>
         </div>
     `).join('');
 }
@@ -818,103 +760,6 @@ function showAddTaskPopup() {
     newTaskInput.focus();
 }
 
-// ========== СТАТИСТИКА ==========
-
-function getTodayStats() {
-    const today = getDateString();
-    const todayTasks = tasks.filter(task => task.date === today);
-    const total = todayTasks.length;
-    const completed = todayTasks.filter(task => task.completed).length;
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    
-    return { total, completed, completionRate };
-}
-
-function getMonthlyStats() {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const firstDay = getLocalDate(currentYear, currentMonth, 1);
-    const lastDay = getLocalDate(currentYear, currentMonth + 1, 0);
-    const totalDaysInMonth = lastDay.getDate();
-    
-    let daysWithTasks = 0;
-    let totalCompletion = 0;
-    
-    for (let day = 1; day <= totalDaysInMonth; day++) {
-        const date = getLocalDate(currentYear, currentMonth, day);
-        const dateString = getDateString(date);
-        const dayStats = getDayStats(dateString);
-        
-        if (dayStats.hasTasks) {
-            daysWithTasks++;
-            totalCompletion += dayStats.completionRate;
-        }
-    }
-    
-    const averageCompletion = daysWithTasks > 0 ? Math.round(totalCompletion / daysWithTasks) : 0;
-    
-    return {
-        daysWithTasks,
-        totalDaysInMonth,
-        averageCompletion,
-        completionRate: averageCompletion
-    };
-}
-
-function calculateStats() {
-    // Общая статистика по всем дням
-    const daysWithStats = Object.keys(dayStatistics);
-    const totalDays = daysWithStats.length;
-    
-    let totalTasks = 0;
-    let completedTasks = 0;
-    let totalCompletion = 0;
-    
-    daysWithStats.forEach(date => {
-        const stats = dayStatistics[date];
-        totalTasks += stats.total;
-        completedTasks += stats.completed;
-        totalCompletion += stats.completionRate;
-    });
-    
-    const averageCompletion = totalDays > 0 ? Math.round(totalCompletion / totalDays) : 0;
-    
-    // Последние задачи
-    const recentTasks = [...tasks]
-        .sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            return dateB - dateA;
-        })
-        .slice(0, 5);
-    
-    return {
-        totalDays,
-        totalTasks,
-        completedTasks,
-        averageCompletion,
-        recentTasks
-    };
-}
-
-function formatDate(dateString) {
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = getLocalDate(year, month - 1, day);
-    const today = new Date();
-    const todayFormatted = getDateString(today);
-    
-    if (dateString === todayFormatted) return 'Сегодня';
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const yesterdayFormatted = getDateString(yesterday);
-    
-    if (dateString === yesterdayFormatted) return 'Вчера';
-    
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-}
-
 // ========== ОПЕРАЦИИ С ШАБЛОНАМИ ==========
 
 function showTemplatesPopup() {
@@ -976,4 +821,635 @@ function deleteTemplate(e) {
         renderTemplatesList();
         renderTab('home');
     }
+}
+
+// ========== СТАТИСТИКА ==========
+
+function getTodayStats() {
+    const today = getDateString();
+    const todayTasks = tasks.filter(task => task.date === today);
+    const total = todayTasks.length;
+    const completed = todayTasks.filter(task => task.completed).length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    
+    return { total, completed, completionRate };
+}
+
+function getMonthlyStats() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const firstDay = getLocalDate(currentYear, currentMonth, 1);
+    const lastDay = getLocalDate(currentYear, currentMonth + 1, 0);
+    const totalDaysInMonth = lastDay.getDate();
+    
+    let daysWithTasks = 0;
+    let totalCompletion = 0;
+    
+    for (let day = 1; day <= totalDaysInMonth; day++) {
+        const date = getLocalDate(currentYear, currentMonth, day);
+        const dateString = getDateString(date);
+        const dayStats = getDayStats(dateString);
+        
+        if (dayStats.hasTasks) {
+            daysWithTasks++;
+            totalCompletion += dayStats.completionRate;
+        }
+    }
+    
+    const averageCompletion = daysWithTasks > 0 ? Math.round(totalCompletion / daysWithTasks) : 0;
+    
+    return {
+        daysWithTasks,
+        totalDaysInMonth,
+        averageCompletion,
+        completionRate: averageCompletion
+    };
+}
+
+function calculateStats() {
+    const daysWithStats = Object.keys(dayStatistics);
+    const totalDays = daysWithStats.length;
+    
+    let totalTasks = 0;
+    let completedTasks = 0;
+    let totalCompletion = 0;
+    
+    daysWithStats.forEach(date => {
+        const stats = dayStatistics[date];
+        totalTasks += stats.total;
+        completedTasks += stats.completed;
+        totalCompletion += stats.completionRate;
+    });
+    
+    const averageCompletion = totalDays > 0 ? Math.round(totalCompletion / totalDays) : 0;
+    
+    return {
+        totalDays,
+        totalTasks,
+        completedTasks,
+        averageCompletion
+    };
+}
+
+// ========== СРАВНЕНИЕ ПРОДУКТИВНОСТИ ==========
+
+function getYearComparison() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const monthStats = [];
+    
+    for (let month = 0; month < 12; month++) {
+        let totalDaysInMonth = 0;
+        let daysWithTasks = 0;
+        let totalCompletion = 0;
+        
+        const firstDay = getLocalDate(currentYear, month, 1);
+        const lastDay = getLocalDate(currentYear, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = getLocalDate(currentYear, month, day);
+            const dateString = getDateString(date);
+            const dayStats = getDayStats(dateString);
+            
+            if (dayStats.hasTasks) {
+                daysWithTasks++;
+                totalCompletion += dayStats.completionRate;
+            }
+        }
+        
+        const averageCompletion = daysWithTasks > 0 ? Math.round(totalCompletion / daysWithTasks) : 0;
+        
+        monthStats.push({
+            month: month,
+            year: currentYear,
+            monthName: getMonthName(month),
+            shortMonthName: getShortMonthName(month),
+            daysWithTasks: daysWithTasks,
+            averageCompletion: averageCompletion,
+            totalDays: daysInMonth
+        });
+    }
+    
+    return monthStats;
+}
+
+function getMonthComparison() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const comparison = [];
+    
+    for (let i = 5; i >= 0; i--) {
+        let targetMonth = currentMonth - i;
+        let targetYear = currentYear;
+        
+        if (targetMonth < 0) {
+            targetMonth += 12;
+            targetYear--;
+        }
+        
+        let daysWithTasks = 0;
+        let totalCompletion = 0;
+        
+        const firstDay = getLocalDate(targetYear, targetMonth, 1);
+        const lastDay = getLocalDate(targetYear, targetMonth + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = getLocalDate(targetYear, targetMonth, day);
+            const dateString = getDateString(date);
+            const dayStats = getDayStats(dateString);
+            
+            if (dayStats.hasTasks) {
+                daysWithTasks++;
+                totalCompletion += dayStats.completionRate;
+            }
+        }
+        
+        const averageCompletion = daysWithTasks > 0 ? Math.round(totalCompletion / daysWithTasks) : 0;
+        
+        comparison.push({
+            month: targetMonth,
+            year: targetYear,
+            monthName: getMonthName(targetMonth),
+            shortMonthName: getShortMonthName(targetMonth),
+            daysWithTasks: daysWithTasks,
+            averageCompletion: averageCompletion,
+            totalDays: daysInMonth
+        });
+    }
+    
+    return comparison;
+}
+
+function getDailyStatsForCurrentMonth() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const firstDay = getLocalDate(currentYear, currentMonth, 1);
+    const lastDay = getLocalDate(currentYear, currentMonth + 1, 0);
+    const totalDaysInMonth = lastDay.getDate();
+    
+    const dailyStats = [];
+    const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    
+    weekdays.forEach(weekday => {
+        dailyStats.push({
+            type: 'weekday',
+            label: weekday
+        });
+    });
+    
+    let firstDayWeekday = firstDay.getDay();
+    if (firstDayWeekday === 0) firstDayWeekday = 7;
+    
+    for (let i = 1; i < firstDayWeekday; i++) {
+        dailyStats.push({
+            type: 'empty',
+            day: null
+        });
+    }
+    
+    for (let day = 1; day <= totalDaysInMonth; day++) {
+        const date = getLocalDate(currentYear, currentMonth, day);
+        const dateString = getDateString(date);
+        const dayStats = getDayStats(dateString);
+        
+        let type = 'empty';
+        if (dayStats.hasTasks) {
+            if (dayStats.completionRate >= 80) {
+                type = 'good';
+            } else if (dayStats.completionRate >= 50) {
+                type = 'medium';
+            } else if (dayStats.completionRate > 0) {
+                type = 'poor';
+            }
+        }
+        
+        dailyStats.push({
+            type: type,
+            day: day,
+            completionRate: dayStats.completionRate,
+            hasTasks: dayStats.hasTasks
+        });
+    }
+    
+    return dailyStats;
+}
+
+// КОМПАКТНЫЙ ВАРИАНТ СРАВНЕНИЯ ПО МЕСЯЦАМ
+function renderCompactMonthsComparison(yearComparison) {
+    // Разделяем на два ряда по 6 месяцев
+    const firstRow = yearComparison.slice(0, 6);
+    const secondRow = yearComparison.slice(6, 12);
+    
+    // Находим максимальное значение для масштабирования
+    const maxCompletion = Math.max(...yearComparison.map(m => m.averageCompletion), 10);
+    
+    return `
+        <div class="comparison-chart">
+            <div class="chart-container">
+                <div class="chart-title">Продуктивность по месяцам (${new Date().getFullYear()})</div>
+                
+                <!-- Первый ряд месяцев (Январь-Июнь) -->
+                <div class="chart-bars">
+                    ${firstRow.map(month => {
+                        const barHeight = month.averageCompletion > 0 ? 
+                            (month.averageCompletion / maxCompletion * 100) : 5;
+                        return `
+                            <div class="chart-bar-container">
+                                <div class="chart-bar" style="height: ${barHeight}%">
+                                    ${month.averageCompletion > 0 ? 
+                                        `<div class="chart-bar-value">${month.averageCompletion}%</div>` : ''}
+                                </div>
+                                <div class="chart-bar-label">${month.shortMonthName}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <!-- Второй ряд месяцев (Июль-Декабрь) -->
+                <div class="chart-bars" style="margin-top: 30px;">
+                    ${secondRow.map(month => {
+                        const barHeight = month.averageCompletion > 0 ? 
+                            (month.averageCompletion / maxCompletion * 100) : 5;
+                        return `
+                            <div class="chart-bar-container">
+                                <div class="chart-bar" style="height: ${barHeight}%">
+                                    ${month.averageCompletion > 0 ? 
+                                        `<div class="chart-bar-value">${month.averageCompletion}%</div>` : ''}
+                                </div>
+                                <div class="chart-bar-label">${month.shortMonthName}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <div class="comparison-list">
+                ${yearComparison.filter(month => month.daysWithTasks > 0).slice(-3).map(month => {
+                    const prevMonthIndex = month.month - 1;
+                    let prevMonth = null;
+                    
+                    if (prevMonthIndex >= 0) {
+                        prevMonth = yearComparison[prevMonthIndex];
+                    }
+                    
+                    let changeClass = 'neutral';
+                    let changeText = '–';
+                    
+                    if (prevMonth && prevMonth.daysWithTasks > 0) {
+                        const change = month.averageCompletion - prevMonth.averageCompletion;
+                        if (change > 5) {
+                            changeClass = 'positive';
+                            changeText = `+${change}%`;
+                        } else if (change < -5) {
+                            changeClass = 'negative';
+                            changeText = `${change}%`;
+                        }
+                    }
+                    
+                    return `
+                        <div class="comparison-item ${changeClass === 'positive' ? 'better' : changeClass === 'negative' ? 'worse' : ''}">
+                            <div class="comparison-period">${month.monthName}</div>
+                            <div class="comparison-stats">
+                                <div class="comparison-value">${month.averageCompletion}%</div>
+                                <div class="comparison-change ${changeClass}">${changeText}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// АЛЬТЕРНАТИВНЫЙ ВАРИАНТ - ГОРИЗОНТАЛЬНЫЙ ГРАФИК
+function renderHorizontalMonthsComparison(yearComparison) {
+    const maxCompletion = Math.max(...yearComparison.map(m => m.averageCompletion), 10);
+    
+    return `
+        <div class="comparison-chart">
+            <div class="chart-container">
+                <div class="chart-title">Продуктивность по месяцам (${new Date().getFullYear()})</div>
+                
+                <div class="horizontal-bars">
+                    ${yearComparison.map(month => {
+                        const barWidth = month.averageCompletion > 0 ? 
+                            (month.averageCompletion / maxCompletion * 100) : 5;
+                        return `
+                            <div class="horizontal-bar-container">
+                                <div class="bar-label">${month.shortMonthName}</div>
+                                <div class="bar-wrapper">
+                                    <div class="horizontal-bar" style="width: ${barWidth}%">
+                                        <span class="bar-percent">${month.averageCompletion}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <style>
+                .horizontal-bars {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    margin-top: 15px;
+                }
+                
+                .horizontal-bar-container {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                
+                .bar-label {
+                    width: 40px;
+                    font-size: 0.9rem;
+                    color: #666;
+                    text-align: right;
+                }
+                
+                .bar-wrapper {
+                    flex: 1;
+                    height: 25px;
+                    background-color: #f0f0f0;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    position: relative;
+                }
+                
+                .horizontal-bar {
+                    height: 100%;
+                    background: linear-gradient(90deg, #6a11cb, #2575fc);
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    padding-right: 10px;
+                    transition: width 0.5s ease-out;
+                    min-width: 30px;
+                }
+                
+                .bar-percent {
+                    color: white;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                }
+            </style>
+        </div>
+    `;
+}
+
+function renderYearsComparison() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const years = [currentYear - 2, currentYear - 1, currentYear];
+    
+    const yearStats = years.map(year => {
+        let totalCompletion = 0;
+        let monthsWithData = 0;
+        
+        for (let month = 0; month < 12; month++) {
+            let monthCompletion = 0;
+            let daysWithTasks = 0;
+            
+            const firstDay = getLocalDate(year, month, 1);
+            const lastDay = getLocalDate(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = getLocalDate(year, month, day);
+                const dateString = getDateString(date);
+                const dayStats = getDayStats(dateString);
+                
+                if (dayStats.hasTasks) {
+                    daysWithTasks++;
+                    monthCompletion += dayStats.completionRate;
+                }
+            }
+            
+            if (daysWithTasks > 0) {
+                totalCompletion += Math.round(monthCompletion / daysWithTasks);
+                monthsWithData++;
+            }
+        }
+        
+        const averageCompletion = monthsWithData > 0 ? Math.round(totalCompletion / monthsWithData) : 0;
+        
+        return {
+            year: year,
+            averageCompletion: averageCompletion,
+            hasData: monthsWithData > 0
+        };
+    });
+    
+    return `
+        <div class="comparison-chart">
+            <div class="chart-container">
+                <div class="chart-title">Сравнение по годам</div>
+                <div class="horizontal-bars">
+                    ${yearStats.map(year => {
+                        const barWidth = year.averageCompletion > 0 ? 
+                            (year.averageCompletion / 100 * 100) : 5;
+                        return `
+                            <div class="horizontal-bar-container">
+                                <div class="bar-label">${year.year}</div>
+                                <div class="bar-wrapper">
+                                    <div class="horizontal-bar" style="width: ${barWidth}%">
+                                        <span class="bar-percent">${year.averageCompletion}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <style>
+                .horizontal-bars {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    margin-top: 15px;
+                }
+                
+                .horizontal-bar-container {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                
+                .bar-label {
+                    width: 50px;
+                    font-size: 0.9rem;
+                    color: #666;
+                    text-align: right;
+                }
+                
+                .bar-wrapper {
+                    flex: 1;
+                    height: 25px;
+                    background-color: #f0f0f0;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    position: relative;
+                }
+                
+                .horizontal-bar {
+                    height: 100%;
+                    background: linear-gradient(90deg, #6a11cb, #2575fc);
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    padding-right: 10px;
+                    transition: width 0.5s ease-out;
+                    min-width: 30px;
+                }
+                
+                .bar-percent {
+                    color: white;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                }
+            </style>
+        </div>
+    `;
+}
+
+function renderDaysComparison(dailyStats) {
+    return `
+        <div class="comparison-chart">
+            <div class="chart-container">
+                <div class="chart-title">Продуктивность по дням (${getMonthName(new Date().getMonth())})</div>
+                <div class="days-stats">
+                    ${dailyStats.map(day => {
+                        if (day.type === 'weekday') {
+                            return `<div class="day-stat weekday">${day.label}</div>`;
+                        } else if (day.type === 'empty') {
+                            return `<div class="day-stat"></div>`;
+                        } else {
+                            let dayClass = '';
+                            if (day.type === 'good') dayClass = 'good';
+                            else if (day.type === 'medium') dayClass = 'medium';
+                            else if (day.type === 'poor') dayClass = 'poor';
+                            
+                            return `
+                                <div class="day-stat ${dayClass}" title="${day.day} число: ${day.completionRate}%">
+                                    <div class="day-stat-number">${day.day}</div>
+                                    ${day.hasTasks ? `<div class="day-stat-label">${day.completionRate}%</div>` : ''}
+                                </div>
+                            `;
+                        }
+                    }).join('')}
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center; font-size: 0.9rem; color: #666;">
+                <div style="display: flex; justify-content: center; gap: 15px; margin-top: 15px;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background-color: rgba(76, 175, 80, 0.1); border: 2px solid #4CAF50; border-radius: 3px;"></div>
+                        <span>≥ 80%</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background-color: rgba(255, 193, 7, 0.1); border: 2px solid #FFC107; border-radius: 3px;"></div>
+                        <span>50-79%</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background-color: rgba(255, 107, 107, 0.1); border: 2px solid #ff6b6b; border-radius: 3px;"></div>
+                        <span>1-49%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function attachComparisonEvents() {
+    document.querySelectorAll('.comparison-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.comparison-tab').forEach(t => {
+                t.classList.remove('active');
+            });
+            
+            this.classList.add('active');
+            
+            const comparisonType = this.dataset.comparison;
+            const comparisonContent = document.querySelector('.comparison-content');
+            
+            switch(comparisonType) {
+                case 'months':
+                    const yearComparison = getYearComparison();
+                    comparisonContent.innerHTML = renderCompactMonthsComparison(yearComparison);
+                    break;
+                    
+                case 'years':
+                    comparisonContent.innerHTML = renderYearsComparison();
+                    break;
+                    
+                case 'days':
+                    const dailyStats = getDailyStatsForCurrentMonth();
+                    comparisonContent.innerHTML = renderDaysComparison(dailyStats);
+                    break;
+            }
+        });
+    });
+}
+
+// ========== ПОПАП ПРОСМОТРА ДНЯ ==========
+
+function showDayTasks(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = getLocalDate(year, month - 1, day);
+    
+    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const formattedDate = date.toLocaleDateString('ru-RU', options);
+    
+    const dayTasks = tasks.filter(task => task.date === dateString);
+    const dayStats = getDayStats(dateString);
+    
+    dayPopupTitle.textContent = `Задачи на ${formattedDate}`;
+    
+    if (dayTasks.length === 0) {
+        dayTasksList.innerHTML = '<p class="placeholder-text">Задач на этот день нет</p>';
+    } else {
+        dayTasksList.innerHTML = dayTasks.map(task => `
+            <div class="day-task-item">
+                <span class="day-task-emoji">${task.emoji || '📝'}</span>
+                <span class="day-task-text ${task.completed ? 'completed' : ''}">
+                    ${task.text}
+                </span>
+                <span class="day-task-status ${task.completed ? 'completed' : 'not-completed'}">
+                    ${task.completed ? '✓' : '✗'}
+                </span>
+            </div>
+        `).join('');
+    }
+    
+    const statsHTML = `
+        <div class="progress-section" style="margin-top: 15px;">
+            <div class="progress-header">
+                <div class="progress-title">Статистика дня</div>
+                <div class="progress-percent">${dayStats.completionRate}%</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${dayStats.completionRate}%"></div>
+            </div>
+            <div class="progress-numbers">
+                <span>Выполнено: ${dayStats.completed}</span>
+                <span>Всего: ${dayStats.total}</span>
+            </div>
+        </div>
+    `;
+    
+    dayTasksList.insertAdjacentHTML('beforeend', statsHTML);
+    
+    dayPopupOverlay.style.display = 'flex';
 }
