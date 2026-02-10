@@ -892,3 +892,8 @@ body {
     font-size: 1.3rem;
     font-weight: 600;
 }
+
+/* Кнопка текущего месяца в календаре */
+.calendar-nav-btn i.fa-calendar-day {
+    font-size: 1.1rem;
+}

@@ -6,6 +6,7 @@ let swipeStartX = 0;
 let currentSwipeTaskId = null;
 let swipeThreshold = 60;
 let currentCalendarDate = new Date(); // Текущая дата для календаря
+let calendarViewDate = new Date(); // Дата для отображения в календаре (может отличаться от текущей)
 let dayStatistics = {}; // Статистика по дням
 
 // Элементы DOM
@@ -32,23 +33,9 @@ const addTaskBtn = document.createElement('button');
 const STORAGE_KEYS = {
     TASKS: 'taskPlanner_tasks',
     TEMPLATES: 'taskPlanner_templates',
-    DAY_STATS: 'taskPlanner_dayStats'
+    DAY_STATS: 'taskPlanner_dayStats',
+    CALENDAR_VIEW: 'taskPlanner_calendarView' // Новый ключ для сохранения состояния календаря
 };
-
-// ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ДАТАМИ ==========
-
-// Функция для получения строки даты в формате YYYY-MM-DD с учетом локального времени
-function getDateString(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-// Функция для получения локальной даты без временной зоны
-function getLocalDate(year, month, day) {
-    return new Date(year, month, day);
-}
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 document.addEventListener('DOMContentLoaded', function() {
@@ -99,6 +86,19 @@ function loadFromStorage() {
             dayStatistics = {};
         }
     }
+
+    // Загружаем состояние календаря
+    const savedCalendarView = localStorage.getItem(STORAGE_KEYS.CALENDAR_VIEW);
+    if (savedCalendarView) {
+        try {
+            const savedDate = JSON.parse(savedCalendarView);
+            calendarViewDate = new Date(savedDate.year, savedDate.month, 1);
+        } catch (e) {
+            calendarViewDate = new Date(); // По умолчанию текущий месяц
+        }
+    } else {
+        calendarViewDate = new Date(); // По умолчанию текущий месяц
+    }
 }
 
 function getDefaultTemplates() {
@@ -123,6 +123,14 @@ function saveTemplates() {
 
 function saveDayStatistics() {
     localStorage.setItem(STORAGE_KEYS.DAY_STATS, JSON.stringify(dayStatistics));
+}
+
+function saveCalendarView() {
+    const calendarState = {
+        year: calendarViewDate.getFullYear(),
+        month: calendarViewDate.getMonth()
+    };
+    localStorage.setItem(STORAGE_KEYS.CALENDAR_VIEW, JSON.stringify(calendarState));
 }
 
 // ========== СТАТИСТИКА ДНЕЙ ==========
@@ -294,8 +302,8 @@ function renderTab(tabName) {
 // ========== КАЛЕНДАРЬ (ИСПРАВЛЕННЫЙ) ==========
 
 function renderCalendar() {
-    const year = currentCalendarDate.getFullYear();
-    const month = currentCalendarDate.getMonth();
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
     const today = new Date();
     const todayFormatted = getDateString(today);
     
@@ -431,14 +439,33 @@ function renderCalendar() {
 
 function attachCalendarEvents() {
     document.getElementById('prev-month-btn').addEventListener('click', () => {
-        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        calendarViewDate.setMonth(calendarViewDate.getMonth() - 1);
+        saveCalendarView(); // Сохраняем состояние календаря
         renderTab('calendar');
     });
     
     document.getElementById('next-month-btn').addEventListener('click', () => {
-        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        calendarViewDate.setMonth(calendarViewDate.getMonth() + 1);
+        saveCalendarView(); // Сохраняем состояние календаря
         renderTab('calendar');
     });
+    
+    // Кнопка "Текущий месяц"
+    const currentMonthBtn = document.createElement('button');
+    currentMonthBtn.className = 'calendar-nav-btn';
+    currentMonthBtn.innerHTML = '<i class="fas fa-calendar-day"></i>';
+    currentMonthBtn.title = 'Текущий месяц';
+    currentMonthBtn.addEventListener('click', () => {
+        calendarViewDate = new Date(); // Сбрасываем на текущий месяц
+        saveCalendarView(); // Сохраняем состояние календаря
+        renderTab('calendar');
+    });
+    
+    // Добавляем кнопку в заголовок календаря
+    const calendarNav = document.querySelector('.calendar-nav');
+    if (calendarNav) {
+        calendarNav.insertBefore(currentMonthBtn, document.getElementById('next-month-btn'));
+    }
     
     // Клик по дням календаря
     document.querySelectorAll('.calendar-day[data-date]').forEach(dayEl => {
@@ -498,6 +525,19 @@ function showDayTasks(dateString) {
     dayTasksList.insertAdjacentHTML('beforeend', statsHTML);
     
     dayPopupOverlay.style.display = 'flex';
+}
+
+// ========== ФУНКЦИИ ДЛЯ РАБОТЫ С ДАТАМИ ==========
+
+function getDateString(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getLocalDate(year, month, day) {
+    return new Date(year, month, day);
 }
 
 // ========== ШАБЛОНЫ И ЗАДАЧИ ==========
